@@ -8,5 +8,5 @@ router.get('/enrolled-courses',getUserEnrolledCourses)
 router.post('/purchase',purchaseCourse)
 router.post('/update-course-progress',updateUserCourseProgress)
 router.post('/get-course-progress',getUserCourseProgress)
-router.post('add-rating', addUserRating)
+router.post('/add-rating', addUserRating)
 module.exports = router;
