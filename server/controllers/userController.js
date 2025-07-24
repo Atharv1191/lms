@@ -52,38 +52,48 @@ const purchaseCourse = async (req, res) => {
       return res.status(404).json({ success: false, message: 'Course not found' });
     }
 
-    const amount = (courseData.coursePrice - (courseData.discount * courseData.coursePrice / 100)).toFixed(2);
+    // Calculate price after discount
+    const amount = (
+      courseData.coursePrice -
+      (courseData.discount * courseData.coursePrice / 100)
+    ).toFixed(2);
 
-    const purchaseData = {
+    // Create initial purchase record
+    const newPurchase = await Purchase.create({
       courseId: courseData._id,
       userId,
       amount,
-    };
-
-    const newPurchase = await Purchase.create(purchaseData);
+    });
 
     const currency = process.env.CURRENCY?.toLowerCase() || 'inr';
 
-    const line_items = [{
-      price_data: {
-        currency,
-        product_data: {
-          name: courseData.courseTitle
+    // Define Stripe line items
+    const line_items = [
+      {
+        price_data: {
+          currency,
+          product_data: {
+            name: courseData.courseTitle,
+          },
+          unit_amount: Math.floor(amount * 100), // Stripe needs amount in paisa
         },
-        unit_amount: Math.floor(newPurchase.amount * 100)
+        quantity: 1,
       },
-      quantity: 1
-    }];
+    ];
 
-   const session = await stripe.checkout.sessions.create({
-
+    // Create Stripe Checkout session with full metadata
+    const session = await stripe.checkout.sessions.create({
+      payment_method_types: ['card'],
+      mode: 'payment',
       success_url: `${origin}/loading/my-enrollments`,
       cancel_url: `${origin}/`,
+      customer_email: userData.email,
       line_items,
-      mode: 'payment',
       metadata: {
-        purchaseId: newPurchase._id.toString()
-      }
+        purchaseId: newPurchase._id.toString(),
+        userId: userData._id.toString(),
+        courseId: courseData._id.toString(),
+      },
     });
 
     res.json({ success: true, session_url: session.url });
@@ -93,6 +103,7 @@ const purchaseCourse = async (req, res) => {
     res.status(500).json({ success: false, message: error.message });
   }
 };
+
 
 
 // Users Enrolled Courses With Lecture Links

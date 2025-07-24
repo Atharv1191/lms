@@ -66,71 +66,85 @@ const clerkWebhooks = async (req, res) => {
 
 const stripeInstance = new Stripe(process.env.STRIPE_SECRET_KEY);
 
- const stripeWebhooks = async (request, response) => {
+const stripeWebhooks = async (request, response) => {
   const sig = request.headers['stripe-signature'];
 
   let event;
 
   try {
-    event = stripeInstance.webhooks.constructEvent(request.body, sig, process.env.STRIPE_WEBHOOK_SECRET);
-  }
-  catch (err) {
-    response.status(400).send(`Webhook Error: ${err.message}`);
+    // Make sure `request.body` is the raw buffer, not JSON-parsed
+    event = stripeInstance.webhooks.constructEvent(
+      request.body,
+      sig,
+      process.env.STRIPE_WEBHOOK_SECRET
+    );
+  } catch (err) {
+    console.error("❌ Webhook signature verification failed:", err.message);
+    return response.status(400).send(`Webhook Error: ${err.message}`);
   }
 
   // Handle the event
   switch (event.type) {
-    case 'payment_intent.succeeded': {
+    case 'checkout.session.completed': {
+      const session = event.data.object;
 
-      const paymentIntent = event.data.object;
-      const paymentIntentId = paymentIntent.id;
+      const { purchaseId, userId, courseId } = session.metadata;
 
-      // Getting Session Metadata
-      const session = await stripeInstance.checkout.sessions.list({
-        payment_intent: paymentIntentId,
-      });
+      try {
+        const purchaseData = await Purchase.findById(purchaseId);
+        const userData = await User.findById(userId);
+        const courseData = await Course.findById(courseId);
 
-      const { purchaseId } = session.data[0].metadata;
+        if (!purchaseData || !userData || !courseData) {
+          console.error("❌ Data not found: ", { purchaseId, userId, courseId });
+          break;
+        }
 
-      const purchaseData = await Purchase.findById(purchaseId)
-      const userData = await User.findById(purchaseData.userId)
-      const courseData = await Course.findById(purchaseData.courseId.toString())
+        // Update course and user enrollments
+        courseData.enrolledStudents.addToSet(userData._id);
+        await courseData.save();
 
-      courseData.enrolledStudents.push(userData)
-      await courseData.save()
+        userData.enrolledCourses.addToSet(courseData._id);
+        await userData.save();
 
-      userData.enrolledCourses.push(courseData._id)
-      await userData.save()
+        // Mark purchase as completed
+        purchaseData.status = 'completed';
+        await purchaseData.save();
 
-      purchaseData.status = 'completed'
-      await purchaseData.save()
+        console.log("✅ Enrollment completed successfully");
+      } catch (error) {
+        console.error("❌ Error handling checkout.session.completed:", error);
+      }
 
       break;
     }
+
     case 'payment_intent.payment_failed': {
-      const paymentIntent = event.data.object;
-      const paymentIntentId = paymentIntent.id;
+      const intent = event.data.object;
 
-      // Getting Session Metadata
-      const session = await stripeInstance.checkout.sessions.list({
-        payment_intent: paymentIntentId,
-      });
-
-      const { purchaseId } = session.data[0].metadata;
-
-      const purchaseData = await Purchase.findById(purchaseId)
-      purchaseData.status = 'failed'
-      await purchaseData.save()
+      try {
+        // You can store purchaseId in metadata even here if needed
+        const { purchaseId } = intent.metadata || {};
+        if (purchaseId) {
+          const purchaseData = await Purchase.findById(purchaseId);
+          if (purchaseData) {
+            purchaseData.status = 'failed';
+            await purchaseData.save();
+          }
+        }
+      } catch (error) {
+        console.error("❌ Error handling payment failure:", error);
+      }
 
       break;
     }
+
     default:
-      console.log(`Unhandled event type ${event.type}`);
+      console.log(`ℹ️ Unhandled event type: ${event.type}`);
   }
 
-  // Return a response to acknowledge receipt of the event
   response.json({ received: true });
-}
+};
 
 
 
