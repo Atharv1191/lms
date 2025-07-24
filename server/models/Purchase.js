@@ -1,7 +1,7 @@
 const mongoose = require("mongoose");
 
 const purchaseSchema = new mongoose.Schema({
-    CourseId:{type:mongoose.Schema.Types.ObjectId,
+    courseId:{type:mongoose.Schema.Types.ObjectId,
         ref:"Course",
          required:true
         },
@@ -13,11 +13,6 @@ const purchaseSchema = new mongoose.Schema({
         amount:{
             type:Number,
             required:true
-        },
-        status:{
-            type:String,
-            required:true
-
         },
         status:{
             type:String,

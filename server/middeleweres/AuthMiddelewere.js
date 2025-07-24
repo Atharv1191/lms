@@ -17,3 +17,7 @@ const protectEducator = async(req,res,next)=>{
     }
 }
 module.exports = protectEducator;
+
+
+
+// Middleware to protect educator routes

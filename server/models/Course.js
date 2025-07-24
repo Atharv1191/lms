@@ -10,11 +10,12 @@ const lectureSchema = new mongoose.Schema({
 },{_id:false});
 
 const chapterSchema = new mongoose.Schema({
-    chapterId:{type:String,required:true},
-    ChapterOrder:{type:Number,required:true},
-    chapterTitle:{type:String,required:true},
-    chapterContent:[lectureSchema]
-},{_id:false});
+    chapterId: { type: String, required: true },
+    chapterOrder: { type: Number, required: true },  // Change this to camelCase
+    chapterTitle: { type: String, required: true },
+    chapterContent: [lectureSchema]
+}, { _id: false });
+
 
 const courseSchema = new mongoose.Schema({
     courseTitle:{
@@ -23,6 +24,7 @@ const courseSchema = new mongoose.Schema({
     },
     courseDescription:{
         type:String,
+        required:true
     },
     courseThumbnail:{
         type:String
@@ -30,6 +32,10 @@ const courseSchema = new mongoose.Schema({
     coursePrice:{
         type:Number,
         required:true,
+    },
+    isPublished:{
+        type:Boolean,
+        default:true
     },
     discount:{
         type:Number,
